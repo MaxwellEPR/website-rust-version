@@ -1,13 +1,10 @@
-mod csvutils;
-mod dateutil;
+mod utils;
 mod entity;
-mod fileutil;
-mod redisutil;
-use csvutils::{readCSVWithHeader, readHeatMap};
-use fileutil::read_dir_item;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
+use utils::csvutils::{readCSVWithHeader, readHeatMap};
+use utils::fileutil::read_dir_item;
 
 #[get("/status")]
 async fn hello() -> impl Responder {
