@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use rand::random;
 use serde::Serialize;
-use std::{collections::HashMap, time::SystemTime, time::UNIX_EPOCH};
+use std::{collections::HashMap, fmt::Display, time::SystemTime, time::UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TaskBody {
@@ -43,6 +43,24 @@ impl TaskBody {
     }
 }
 
+impl Display for TaskBody {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{},{},{},{},{},{},{},{},{}",
+            self.task_id,
+            self.status,
+            self.email,
+            self.model_name,
+            self.uuid,
+            self.captcha,
+            self.submit_time,
+            self.complete_time,
+            self.data
+        )
+    }
+}
+
 pub struct TaskResponse {
     task_body: TaskBody,
     result: HashMap<String, HashMap<String, Vec<String>>>,
@@ -54,5 +72,16 @@ impl TaskResponse {
         result: HashMap<String, HashMap<String, Vec<String>>>,
     ) -> TaskResponse {
         TaskResponse { task_body, result }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    pub fn test_new() {
+        use crate::entity::TaskBody;
+        let taskBody = TaskBody::new();
+        println!("{}", taskBody)
     }
 }
