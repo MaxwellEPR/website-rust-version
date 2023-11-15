@@ -19,3 +19,18 @@ where
 
     Ok(results)
 }
+
+
+#[cfg(test)]
+mod test{
+    use std::path::Path;
+    use super::read_dir_item;
+
+    #[test]
+    pub fn test_read_dir_item(){
+        let path = Path::new("D:\\rust");
+        let result = read_dir_item(path, |str|{true}).unwrap();
+        result.iter().for_each(|s|{println!("{}",s)});
+    }
+
+}

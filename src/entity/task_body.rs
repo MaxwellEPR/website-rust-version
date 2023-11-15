@@ -1,9 +1,10 @@
 use chrono::NaiveDateTime;
+use r2d2_redis::redis::{FromRedisValue, RedisResult,Value,from_redis_value};
 use rand::random;
-use serde::Serialize;
-use std::{collections::HashMap, fmt::Display, time::SystemTime, time::UNIX_EPOCH};
+use serde::{Serialize, Deserialize};
+use std::{collections::HashMap, fmt::Display, time::SystemTime, time::UNIX_EPOCH, vec};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize,Deserialize)]
 pub struct TaskBody {
     task_id: String,
     pub status: u8,
@@ -47,7 +48,7 @@ impl Display for TaskBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{},{},{},{},{},{},{},{},{}",
+            "task_id:{},status:{},email:{},model_name:{},uuid:{},captcha:{},submit_time:{},complete_time:{},data:{}",
             self.task_id,
             self.status,
             self.email,
@@ -60,6 +61,22 @@ impl Display for TaskBody {
         )
     }
 }
+
+impl FromRedisValue for TaskBody {
+    fn from_redis_value(v: &r2d2_redis::redis::Value) -> RedisResult<Self> {
+        let v:String = from_redis_value(v)?;
+        RedisResult::Ok(serde_json::from_str::<TaskBody>(&v).expect("get task_body fail"))
+    }
+
+    fn from_redis_values(
+        items: &[Value],
+    ) ->RedisResult<Vec<Self>> {
+        let v = items.iter().map(|val|{from_redis_value(val).unwrap()}).collect::<Vec<String>>();
+        let res = v.iter().map(|val|{serde_json::from_str::<TaskBody>(&val).expect("get task body fail")}).collect::<Vec<TaskBody>>();
+        RedisResult::Ok(res)
+    }
+}
+
 
 pub struct TaskResponse {
     task_body: TaskBody,
@@ -80,8 +97,8 @@ mod test {
 
     #[test]
     pub fn test_new() {
-        use crate::entity::TaskBody;
-        let taskBody = TaskBody::new();
-        println!("{}", taskBody)
+        use crate::entity::task_body::TaskBody;
+        let task_body = TaskBody::new();
+        println!("{}", task_body)
     }
 }

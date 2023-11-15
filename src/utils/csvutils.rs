@@ -4,7 +4,7 @@ use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::vec::Vec;
 
-pub fn readCSVWithHeader(file: &Path) -> Result<HashMap<String, Vec<String>>, Error> {
+pub fn read_csv_with_header(file: &Path) -> Result<HashMap<String, Vec<String>>, Error> {
     let mut record = HashMap::new();
     let content = fs::read_to_string(file)?;
 
@@ -35,8 +35,8 @@ pub fn readCSVWithHeader(file: &Path) -> Result<HashMap<String, Vec<String>>, Er
     Ok(record)
 }
 
-pub fn readHeatMap(path: &Path, which: usize) -> Result<Vec<Vec<String>>, Error> {
-    let mut heatMap = vec![vec![]];
+pub fn read_as_heatmap(path: &Path, which: usize) -> Result<Vec<Vec<String>>, Error> {
+    let mut heat_map = vec![vec![]];
     let content = fs::read_to_string(path)?;
     if content.is_empty() {
         return Err(Error::new(ErrorKind::Other, "文件无内容"));
@@ -46,7 +46,36 @@ pub fn readHeatMap(path: &Path, which: usize) -> Result<Vec<Vec<String>>, Error>
         .iter()
         .skip(4 * which + 1)
         .take(4)
-        .for_each(|&s| heatMap.push(s.split(",").map(|s| s.to_string()).collect::<Vec<String>>()));
+        .for_each(|&s| heat_map.push(s.split(",").map(|s| s.to_string()).collect::<Vec<String>>()));
 
-    Ok(heatMap)
+    Ok(heat_map)
+}
+
+#[cfg(test)]
+mod test{
+    use std::{path::{self, Path}, f32::consts::E};
+    use super::{read_csv_with_header, read_as_heatmap};
+
+    #[test]
+    pub fn test_read_with_header(){
+        let path = Path::new("D:\\rust\\test.csv");
+        let result = read_csv_with_header(path).unwrap();
+        for ele in result {
+            let (key,val) = ele;
+            print!("{key}:");
+            val.iter().for_each(|v|{print!("{}",v)});
+            println!("");
+        }
+    }
+
+    #[test]
+    pub fn test_read_as_heatmap(){
+        let path = Path::new("D:\\rust\\test.csv");
+        let result = read_as_heatmap(path, 0).unwrap();
+        result.iter().for_each(|v|{
+            v.iter().for_each(|e|{print!("{} ",e)});
+            println!("");
+        })
+    }
+
 }
