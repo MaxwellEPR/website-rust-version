@@ -1,2 +1,3 @@
 pub mod thread_pool;
-pub mod mysql;
+pub mod connection;
+pub mod query;

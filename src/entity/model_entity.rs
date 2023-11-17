@@ -1,25 +1,41 @@
-use chrono::{DateTime, NaiveDate, TimeZone, Date, Utc};
+use std::fmt::Display;
+use chrono::{ NaiveDate};
+use sea_orm::entity::prelude::*;
 
-pub struct ModelEntity {
-    id: usize,
-    model_name: String,
-    pycode: String,
-    vir_env_name: String,
+#[derive(Clone, Debug,PartialEq, Eq, DeriveEntityModel)]
+#[sea_orm(table_name = "exec_env_code")]
+pub struct Model {
+    #[sea_orm(primary_key)]
+    pub id: u32,
+    pub name: String,
+    pub model_name: String,
+    pub pycode: String,
+    pub pypath: String,
     create_time: NaiveDate,
-    last_modified_time: NaiveDate,
+    update_time: NaiveDate,
 }
 
-impl ModelEntity {
-    pub fn new() -> ModelEntity {
-        ModelEntity {
-            id: 0,
-            model_name: String::from(""),
-            pycode: String::from(""),
-            vir_env_name: String::from(""),
-            create_time: Utc::now().date_naive(),
-            last_modified_time: Utc::now().date_naive(),
-        }
+
+impl Display for Model{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"id:{},name:{},model_name:{},pycode:{},pypath:{},crate_time:{},last_modified_time:{}"
+                ,self.id,self.name,self.model_name,self.pycode,self.pypath,self.create_time,self.update_time)
     }
 }
 
+#[derive(Clone, Copy, Debug, EnumIter,DeriveRelation)]
+pub enum Relation {
+}
 
+impl ActiveModelBehavior for ActiveModel {
+}
+
+
+#[cfg(test)]
+mod test{
+    use super::Model;
+
+    #[test]
+    pub fn test_display(){
+    }
+}

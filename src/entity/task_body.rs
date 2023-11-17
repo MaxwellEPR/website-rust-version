@@ -1,13 +1,38 @@
 use chrono::NaiveDateTime;
-use r2d2_redis::redis::{FromRedisValue, RedisResult,Value,from_redis_value};
+use r2d2_redis::redis::{FromRedisValue, RedisResult,Value,from_redis_value, ToRedisArgs};
 use rand::random;
+use regex::{Regex};
 use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, fmt::Display, time::SystemTime, time::UNIX_EPOCH, vec};
+use validator::{Validate, ValidationError};
+use std::{collections::HashMap, fmt::Display, time::SystemTime, time::UNIX_EPOCH};
 
-#[derive(Debug, Clone, Serialize,Deserialize)]
+
+#[derive(Debug,Clone,Serialize,Deserialize)]
+pub enum TaskStatus {
+    Submit,
+    Processing,
+    Complete,
+    Fail,
+}
+
+impl Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = String::new();
+        match self {
+            Self::Submit=>s.push_str("Submit"),
+            Self::Processing=>s.push_str("Processing"),
+            Self::Complete=>s.push_str("Complete"),
+            Self::Fail=>s.push_str("Fail")
+        }
+        write!(f,"{}",s)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize,Validate)]
 pub struct TaskBody {
-    task_id: String,
-    pub status: u8,
+    pub task_id: String,
+    pub status: TaskStatus,
+    #[validate(email)]
     pub email: String,
     pub model_name: String,
     #[serde(skip_serializing)]
@@ -16,7 +41,8 @@ pub struct TaskBody {
     pub captcha: u8,
     submit_time: String,
     complete_time: String,
-    pub data: String,
+    #[validate(custom = "validate_data")]
+    pub data: Vec<String>,
 }
 
 impl TaskBody {
@@ -32,14 +58,14 @@ impl TaskBody {
 
         TaskBody {
             task_id,
-            status: 0,
+            status: TaskStatus::Submit,
             email: String::from(""),
             model_name: String::from(""),
             uuid: String::from(""),
             captcha: 0,
             submit_time: format_time,
             complete_time: String::from(""),
-            data: String::from(""),
+            data: Vec::new(),
         }
     }
 }
@@ -57,7 +83,7 @@ impl Display for TaskBody {
             self.captcha,
             self.submit_time,
             self.complete_time,
-            self.data
+            self.data.iter().map(|s|format!("{}",s)).collect::<String>()
         )
     }
 }
@@ -77,6 +103,24 @@ impl FromRedisValue for TaskBody {
     }
 }
 
+impl ToRedisArgs for TaskBody {
+    fn write_redis_args<W>(&self, out: &mut W)
+        where
+            W: ?Sized + r2d2_redis::redis::RedisWrite {
+        out.write_arg_fmt(self);
+    }
+}
+
+fn validate_data(data:&Vec<String>)->Result<(),ValidationError>{
+    if data.len().eq(&0) {
+        return Ok(());
+    }
+    let ppi = Regex::new(r"^>\w{1,20}\n[aAtTcCgGnN]+$").unwrap();
+    if data.iter().all(|s|ppi.is_match(s)) {
+        return Ok(());
+    };
+    Err(ValidationError::new("ppi格式错误"))
+}
 
 pub struct TaskResponse {
     task_body: TaskBody,
@@ -94,11 +138,23 @@ impl TaskResponse {
 
 #[cfg(test)]
 mod test {
+    use validator::ValidationError;
+
+    use super::validate_data;
+
 
     #[test]
     pub fn test_new() {
         use crate::entity::task_body::TaskBody;
         let task_body = TaskBody::new();
         println!("{}", task_body)
+    }
+
+    #[test]
+    pub fn test_custom_validation(){
+        let data = vec![">zmoajfeoaj\nAAACCCCCaaaCCCcccttTTTgggGGGNNnnn".to_string()];
+        assert_eq!(validate_data(&data),Ok(()));
+        let wrong = vec![">faod\noawefujoaj".to_string()];
+        assert_eq!(validate_data(&wrong),Err(ValidationError::new("ppi格式错误")));
     }
 }
