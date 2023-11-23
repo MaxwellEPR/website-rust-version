@@ -4,13 +4,16 @@ use crate::core::template::get_template_as_string;
 use crate::core::thread_pool::ThreadPool;
 use crate::core::validation::seq_validate::evalidate_task_id;
 use crate::entity::task_body::{TaskBody, TaskStatus};
-use crate::utils::csvutils::{read_as_heatmap, read_csv_with_header};
+use crate::utils::csvutils::{read_all_heatmap, read_by_page, read_csv_with_header, read_heatmap};
 use crate::utils::fileutil::read_dir_item;
+use actix_multipart::Multipart;
 use actix_web::{get, post, web, HttpResponse, Responder};
+use futures_util::StreamExt;
 use r2d2_redis::r2d2::Pool as RedisPool;
 use r2d2_redis::redis::Commands;
 use r2d2_redis::RedisConnectionManager;
 use sea_orm::DatabaseConnection;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::{collections::HashMap, path::Path};
@@ -42,11 +45,11 @@ async fn echo(path_var: web::Path<String>) -> impl Responder {
             if let Ok(files) = read_dir_item(path, |s| s.ends_with(".csv")) {
                 for ele in files {
                     if ele.starts_with("t") {
-                        let res = read_csv_with_header(Path::new(&ele)).unwrap();
+                        let res = read_csv_with_header(Path::new(&ele), 1, 10000).unwrap();
                         let strres = serde_json::to_string(&res).unwrap();
                         resp.insert(ele, strres);
                     } else {
-                        let res = read_as_heatmap(Path::new(&ele), 0).unwrap();
+                        let res = read_heatmap(path, 0).unwrap();
                         let strres = serde_json::to_string(&res).unwrap();
                         resp.insert(ele, strres);
                     }
@@ -133,35 +136,86 @@ async fn submit(
 }
 
 #[post("/submit/file")]
-pub async fn submit_file(task_body: web::Json<TaskBody>) -> impl Responder {
+pub async fn submit_file(mut payload: Multipart) -> impl Responder {
+    let mut task_body = TaskBody::new();
+    while let Some(item) = payload.next().await {
+        if let Ok(mut field) = item {
+            if let Some(file_name) = field.content_disposition().get_filename() {
+                let file_path = format!("upload/{}", file_name);
+                let mut file = File::create(file_path).unwrap();
+
+                while let Some(chunk) = field.next().await {
+                    let data = chunk.unwrap();
+                    file.write(&data);
+                }
+            } else {
+            };
+        }
+    }
+
+    let file = fs::read_to_string(format!("result/{}.fasta", task_body.task_id)).unwrap();
+    let lines = file.lines().collect::<Vec<&str>>();
+
+    let mut i = 0;
+    let mut seqs = vec![];
+    while i + 1 < lines.len() {
+        let s = format!("{}\n{}", lines.get(i).unwrap(), lines.get(i + 1).unwrap());
+        seqs.push(s);
+        i = i + 2;
+    }
+
+
     HttpResponse::Ok()
 }
 
 #[get("/result/predict")]
 pub async fn get_predict(
-    mut task_id: web::Query<String>,
+    task_id: web::Query<String>,
     page: web::Query<usize>,
     limit: web::Query<usize>,
     redis: web::Data<RedisPool<RedisConnectionManager>>,
-) -> impl Responder {
-    if !evalidate_task_id(&task_id) || page.0 < 0 || limit.0 < 0 {
-        return HttpResponse::BadRequest();
+) -> HttpResponse {
+    if !evalidate_task_id(&task_id) || page.0.lt(&0) || limit.0.le(&0) {
+        return HttpResponse::BadRequest().into();
     }
 
     match redis.get() {
         Ok(mut conn) => {
             if let Ok(task_body) = conn.get::<String, TaskBody>(task_id.0) {
+                if let Ok(result) = read_by_page(&task_body, page.0, limit.0) {
+                    return HttpResponse::Ok().json(result);
+                };
             } else {
-                return HttpResponse::BadRequest();
+                return HttpResponse::BadRequest().into();
             }
         }
         Err(_) => {
-            return HttpResponse::BadRequest();
+            return HttpResponse::BadRequest().into();
         }
     };
 
+    HttpResponse::Ok().into()
+}
 
-    HttpResponse::Ok()
+#[get("/result/saliency")]
+pub async fn get_saliency(
+    task_id: web::Query<String>,
+    id: web::Query<usize>,
+    redis: web::Data<RedisPool<RedisConnectionManager>>,
+) -> HttpResponse {
+    if !evalidate_task_id(&task_id) || id.0.lt(&0) {
+        return HttpResponse::BadRequest().into();
+    }
+
+    if let Ok(mut conn) = redis.get() {
+        if let Ok(task_body) = conn.get::<&String, TaskBody>(&task_id.0) {
+            if let Ok(result) = read_all_heatmap(&task_body, id.0) {
+                return HttpResponse::Ok().body(serde_json::to_string(&result).unwrap());
+            };
+        };
+    }
+
+    HttpResponse::BadRequest().into()
 }
 
 #[cfg(test)]

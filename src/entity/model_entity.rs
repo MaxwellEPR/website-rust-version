@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use chrono::{ NaiveDate};
+use chrono::NaiveDate;
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug,PartialEq, Eq, DeriveEntityModel)]
