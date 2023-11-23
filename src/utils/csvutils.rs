@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, File, DirBuilder};
 use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::vec::Vec;
@@ -51,9 +51,17 @@ pub fn read_as_heatmap(path: &Path, which: usize) -> Result<Vec<Vec<String>>, Er
     Ok(heat_map)
 }
 
+pub fn read_by_page(task_id:&String,page:usize,limit:usize)->Result<>{
+    
+    fs::read_dir("D:/rust/")?.filter(|entry|{
+        let file_name = entry.unwrap().file_name().as_encoded_bytes();
+    })
+}
+
+
 #[cfg(test)]
 mod test{
-    use std::{path::{self, Path}, f32::consts::E};
+    use std::path::Path;
     use super::{read_csv_with_header, read_as_heatmap};
 
     #[test]

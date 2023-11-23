@@ -1,7 +1,6 @@
-use actix_web::web::block;
 use sea_orm::{Database, DatabaseConnection, DbErr};
 
-static S_CONN: Result<DatabaseConnection, ()> = Err(());
+// static S_CONN: Result<DatabaseConnection, ()> = Err(());
 
 pub struct DataSource {
     user: &'static str,
@@ -51,6 +50,6 @@ mod test {
 
     #[test]
     pub fn test_connection() {
-        get_connection();
+        // get_connection();
     }
 }

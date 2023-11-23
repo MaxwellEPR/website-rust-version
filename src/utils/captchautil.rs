@@ -1,6 +1,5 @@
-use std::path::Path;
-use captcha::{Captcha};
-use captcha::filters::{Noise,Dots};
+use captcha::Captcha;
+use captcha::filters::Noise;
 
 pub fn get_captcha()->Option<String>{
     Captcha::new()
